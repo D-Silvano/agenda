@@ -1,0 +1,54 @@
+import React from 'react';
+import { AppProvider, useApp } from './context/AppContext';
+import Layout from './components/Layout/Layout';
+import Login from './pages/Login';
+import Patients from './pages/Patients';
+import Schedule from './pages/Schedule';
+import Doctors from './pages/Doctors';
+import Admin from './pages/Admin';
+import Users from './pages/Users';
+import AppointmentsList from './pages/AppointmentsList';
+
+const AppContent: React.FC = () => {
+    const { currentView, isAuthenticated, currentUser } = useApp();
+
+    if (!isAuthenticated) {
+        return <Login />;
+    }
+
+    const renderView = () => {
+        // Basic RBAC check for view rendering
+        if (currentUser?.role === 'health_professional' && !['dashboard', 'patients', 'appointments_list'].includes(currentView)) {
+            return <Admin />; // Or some "Unauthorized" page
+        }
+
+        switch (currentView) {
+            case 'dashboard':
+                return <Admin />;
+            case 'patients':
+                return <Patients />;
+            case 'doctors':
+                return <Doctors />;
+            case 'schedule':
+                return <Schedule />;
+            case 'users':
+                return <Users />;
+            case 'appointments_list':
+                return <AppointmentsList />;
+            default:
+                return <Admin />;
+        }
+    };
+
+    return <Layout>{renderView()}</Layout>;
+};
+
+const App: React.FC = () => {
+    return (
+        <AppProvider>
+            <AppContent />
+        </AppProvider>
+    );
+};
+
+export default App;
