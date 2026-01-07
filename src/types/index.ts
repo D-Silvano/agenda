@@ -8,7 +8,7 @@ export interface Patient {
     susCard: string;
     communityAgent: string;
     doctorType: string;
-    registeredBy: string; // User ID of who registered the patient
+    registeredBy?: string; // User ID of who registered the patient
     createdAt: Date;
 }
 
@@ -55,6 +55,7 @@ export interface User {
     name: string;
     role: UserRole;
     cpf: string;
+    email?: string;
     establishment: string;
     password?: string;
 }

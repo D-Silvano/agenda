@@ -37,7 +37,13 @@ const Patients: React.FC = () => {
         const matchesName = patient.name.toLowerCase().includes(filters.name.toLowerCase());
         const matchesCpf = patient.cpf.includes(filters.cpf);
         const matchesSpecialty = filters.specialty === '' || patient.doctorType === filters.specialty;
-        return matchesName && matchesCpf && matchesSpecialty;
+
+        // Restriction for Health Professionals: Can only see patients they registered
+        const matchesUser = currentUser?.role === 'health_professional'
+            ? patient.registeredBy === currentUser.id
+            : true;
+
+        return matchesName && matchesCpf && matchesSpecialty && matchesUser;
     });
 
     const canEditOrDelete = (patient: Patient) => {

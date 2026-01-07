@@ -26,7 +26,7 @@ const DoctorForm: React.FC = () => {
         });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const proceduresArray = formData.procedures
@@ -34,22 +34,30 @@ const DoctorForm: React.FC = () => {
             .map(p => p.trim())
             .filter(p => p !== '');
 
-        addDoctor({
-            name: formData.name,
-            cpf: formData.cpf,
-            specialty: formData.specialty,
-            crm: formData.crm,
-            procedures: proceduresArray,
-        });
+        try {
+            const result = await addDoctor({
+                name: formData.name,
+                cpf: formData.cpf,
+                specialty: formData.specialty,
+                crm: formData.crm,
+                procedures: proceduresArray,
+            });
 
-        setFormData({
-            name: '',
-            cpf: '',
-            specialty: '',
-            crm: '',
-            procedures: '',
-        });
-        alert('Médico cadastrado com sucesso!');
+            if (result?.error) {
+                alert('Erro ao cadastrar médico: ' + result.error);
+            } else {
+                setFormData({
+                    name: '',
+                    cpf: '',
+                    specialty: '',
+                    crm: '',
+                    procedures: '',
+                });
+                alert('Médico cadastrado com sucesso!');
+            }
+        } catch (error: any) {
+            alert('Erro inesperado: ' + (error.message || 'Erro desconhecido'));
+        }
     };
 
     return (

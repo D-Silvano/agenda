@@ -61,19 +61,31 @@ const PatientForm: React.FC<PatientFormProps> = ({ patientToEdit, onCancel }) =>
         });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (patientToEdit) {
-            updatePatient(patientToEdit.id, formData);
-            alert('Paciente atualizado com sucesso!');
-            if (onCancel) onCancel();
-        } else {
-            addPatient(formData);
-            alert('Paciente cadastrado com sucesso!');
+        try {
+            if (patientToEdit) {
+                const result = await updatePatient(patientToEdit.id, formData);
+                if (result?.error) {
+                    alert('Erro ao atualizar paciente: ' + result.error);
+                } else {
+                    alert('Paciente atualizado com sucesso!');
+                    if (onCancel) onCancel();
+                    setFormData(initialFormState);
+                }
+            } else {
+                const result = await addPatient(formData);
+                if (result?.error) {
+                    alert('Erro ao cadastrar paciente: ' + result.error);
+                } else {
+                    alert('Paciente cadastrado com sucesso!');
+                    setFormData(initialFormState);
+                }
+            }
+        } catch (error: any) {
+            alert('Erro inesperado: ' + (error.message || 'Erro desconhecido'));
         }
-
-        setFormData(initialFormState);
     };
 
     const handleClear = () => {

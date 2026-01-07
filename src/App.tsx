@@ -10,7 +10,18 @@ import Users from './pages/Users';
 import AppointmentsList from './pages/AppointmentsList';
 
 const AppContent: React.FC = () => {
-    const { currentView, isAuthenticated, currentUser } = useApp();
+    const { currentView, isAuthenticated, currentUser, isLoading } = useApp();
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-white/5 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gold-DEFAULT border-t-transparent"></div>
+                    <p className="text-brown-900/60 font-medium animate-pulse">Carregando...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return <Login />;
