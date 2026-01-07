@@ -30,10 +30,13 @@ interface AppContextType {
     deleteSchedulingList: (id: string) => Promise<void>;
     addPatientToList: (listId: string, patientId: string) => Promise<void>;
     removePatientFromList: (listId: string, patientId: string) => Promise<void>;
+    updatePatientStatusInList: (listId: string, patientId: string, status: 'postponed' | 'desisted' | null) => Promise<void>;
 
     // Users
     users: User[];
     addUser: (user: Omit<User, 'id'>) => Promise<{ error?: string }>;
+    updateUser: (id: string, userData: Partial<Omit<User, 'id'>>) => Promise<{ error?: string }>;
+    deleteUser: (id: string) => Promise<{ error?: string }>;
 
     // Auth
     isAuthenticated: boolean;
@@ -43,6 +46,10 @@ interface AppContextType {
     login: (cpf: string, password: string) => Promise<{ error?: string }>;
     logout: () => Promise<void>;
     fetchUsers: () => Promise<void>;
+
+    // App Settings
+    bannerImageUrl: string;
+    updateBannerImage: (url: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -60,6 +67,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isUsersLoading, setIsUsersLoading] = useState<boolean>(false);
+    const [bannerImageUrl, setBannerImageUrl] = useState<string>('');
 
     const fetchPatients = async () => {
         const { data, error } = await supabase
@@ -132,7 +140,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const fetchSchedulingLists = async () => {
         const { data, error } = await supabase
             .from('scheduling_lists')
-            .select('*, scheduling_list_patients(patient_id)')
+            .select('*, scheduling_list_patients(patient_id, status)')
             .order('date', { ascending: true });
 
         if (data) {
@@ -143,6 +151,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 doctorId: l.doctor_id,
                 doctorType: l.doctor_type || '',
                 patientIds: l.scheduling_list_patients?.map((p: any) => p.patient_id) || [],
+                patientStatuses: l.scheduling_list_patients?.reduce((acc: any, p: any) => ({ ...acc, [p.patient_id]: p.status }), {}) || {},
             })));
         } else if (error) {
             console.error('Error fetching scheduling lists:', error);
@@ -175,13 +184,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
+    const fetchBannerImage = async () => {
+        const { data, error } = await supabase
+            .from('app_settings')
+            .select('setting_value')
+            .eq('setting_key', 'banner_image_url')
+            .single();
+
+        if (data && !error) {
+            setBannerImageUrl(data.setting_value || '');
+        } else if (error) {
+            console.error('Error fetching banner image:', error);
+        }
+    };
+
     const loadAllData = async () => {
         setIsLoading(true);
         await Promise.all([
             fetchPatients(),
             fetchDoctors(),
             fetchAppointments(),
-            fetchSchedulingLists()
+            fetchSchedulingLists(),
+            fetchBannerImage()
         ]);
         setIsLoading(false);
     };
@@ -404,6 +428,71 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
+    const updateUser = async (id: string, userData: Partial<Omit<User, 'id'>>) => {
+        try {
+            console.log('updateUser: Início do processo', id, userData);
+
+            // Preparar dados para atualização
+            const updateData: any = {};
+            if (userData.name) updateData.name = userData.name;
+            if (userData.role) updateData.role = userData.role;
+            if (userData.cpf) updateData.cpf = userData.cpf.replace(/\D/g, '');
+            if (userData.establishment) updateData.establishment = userData.establishment;
+
+            console.log('updateUser: Dados preparados:', updateData);
+
+            // Atualizar no banco de dados
+            const { error } = await supabase
+                .from('profiles')
+                .update(updateData)
+                .eq('id', id);
+
+            if (error) {
+                console.error('updateUser: Erro ao atualizar:', error);
+                return { error: error.message };
+            }
+
+            console.log('updateUser: Atualização bem-sucedida, recarregando lista...');
+            // Atualizar lista local
+            await fetchUsers();
+            return {};
+        } catch (err: any) {
+            console.error('updateUser: Exceção inesperada:', err);
+            return { error: err.message || 'Erro inesperado ao atualizar usuário.' };
+        }
+    };
+
+    const deleteUser = async (id: string) => {
+        try {
+            console.log('deleteUser: Início do processo', id);
+
+            // Verificar se não está tentando excluir o próprio usuário
+            if (id === currentUser?.id) {
+                console.warn('deleteUser: Tentativa de excluir próprio usuário');
+                return { error: 'Você não pode excluir seu próprio usuário.' };
+            }
+
+            // Excluir do banco de dados
+            const { error } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                console.error('deleteUser: Erro ao excluir:', error);
+                return { error: error.message };
+            }
+
+            console.log('deleteUser: Exclusão bem-sucedida, atualizando lista local...');
+            // Atualizar lista local
+            setUsers(prev => prev.filter(u => u.id !== id));
+            return {};
+        } catch (err: any) {
+            console.error('deleteUser: Exceção inesperada:', err);
+            return { error: err.message || 'Erro inesperado ao excluir usuário.' };
+        }
+    };
+
     const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt'>) => {
         const { data, error } = await supabase
             .from('patients')
@@ -609,6 +698,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
+    const updatePatientStatusInList = async (listId: string, patientId: string, status: 'postponed' | 'desisted' | null) => {
+        const { error } = await supabase
+            .from('scheduling_list_patients')
+            .update({ status })
+            .match({ list_id: listId, patient_id: patientId });
+
+        if (error) {
+            console.error('Error updating patient status in list:', error);
+        } else {
+            setSchedulingLists(prev => prev.map(l => {
+                if (l.id === listId) {
+                    return {
+                        ...l,
+                        patientStatuses: {
+                            ...l.patientStatuses,
+                            [patientId]: status
+                        }
+                    };
+                }
+                return l;
+            }));
+        }
+    };
+
     const removePatientFromList = async (listId: string, patientId: string) => {
         const { error } = await supabase
             .from('scheduling_list_patients')
@@ -667,6 +780,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
+    const updateBannerImage = async (url: string) => {
+        const { error } = await supabase
+            .from('app_settings')
+            .update({
+                setting_value: url,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser?.id
+            })
+            .eq('setting_key', 'banner_image_url');
+
+        if (!error) {
+            setBannerImageUrl(url);
+        } else {
+            console.error('Error updating banner image:', error);
+        }
+    };
+
     return (
         <AppContext.Provider
             value={{
@@ -687,15 +817,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 deleteSchedulingList,
                 addPatientToList,
                 removePatientFromList,
+                updatePatientStatusInList,
+                users,
                 isAuthenticated,
                 isLoading,
                 isUsersLoading,
                 currentUser,
                 login,
                 logout,
-                users,
                 addUser,
+                updateUser,
+                deleteUser,
                 fetchUsers,
+                bannerImageUrl,
+                updateBannerImage,
             }}
         >
             {children}

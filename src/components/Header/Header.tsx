@@ -17,6 +17,12 @@ const Header: React.FC<HeaderProps> = ({
     const [tempUrl, setTempUrl] = useState(imageUrl);
     const [previewUrl, setPreviewUrl] = useState(imageUrl);
 
+    // Sincronizar estado local quando a prop imageUrl mudar (ex: carregamento do banco)
+    React.useEffect(() => {
+        setPreviewUrl(imageUrl);
+        setTempUrl(imageUrl);
+    }, [imageUrl]);
+
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {

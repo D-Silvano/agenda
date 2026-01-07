@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { Patient } from '../types';
 
 const Patients: React.FC = () => {
-    const { patients, deletePatient, currentUser, doctors } = useApp();
+    const { patients, deletePatient, currentUser, doctors, schedulingLists, appointments } = useApp();
     const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
     // Password Verification State
@@ -277,7 +277,26 @@ const Patients: React.FC = () => {
                                         <td className="py-3 px-4 text-sm text-gray-600">{patient.basicHealthUnit}</td>
                                         <td className="py-3 px-4 text-sm text-gray-600">{patient.communityAgent}</td>
                                         <td className="py-3 px-4 text-sm text-gray-600">
-                                            <span className="badge badge-info">{patient.doctorType}</span>
+                                            {(() => {
+                                                const scheduledList = schedulingLists.find(list => list.patientIds.includes(patient.id));
+                                                const scheduledAppointment = appointments.find(apt => apt.patientId === patient.id && apt.status === 'scheduled');
+
+                                                const isScheduled = !!scheduledList || !!scheduledAppointment;
+                                                const scheduledDate = scheduledList
+                                                    ? new Date(scheduledList.date + 'T00:00:00').toLocaleDateString('pt-BR')
+                                                    : scheduledAppointment
+                                                        ? new Date(scheduledAppointment.date + 'T00:00:00').toLocaleDateString('pt-BR')
+                                                        : '';
+
+                                                return (
+                                                    <span
+                                                        className={`badge ${isScheduled ? 'bg-green-100 text-green-800 border-green-200' : 'badge-info'} cursor-help`}
+                                                        title={isScheduled ? `Agendado para: ${scheduledDate}` : ''}
+                                                    >
+                                                        {patient.doctorType}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         {hasAnyActionPermission && (
                                             <td className="py-3 px-4 text-sm text-gray-600">

@@ -46,6 +46,7 @@ export interface SchedulingList {
     doctorId: string;
     doctorType: string;
     patientIds: string[];
+    patientStatuses: Record<string, 'postponed' | 'desisted' | 'scheduled' | null>;
 }
 
 export type UserRole = 'administrator' | 'health_professional';
@@ -58,6 +59,14 @@ export interface User {
     email?: string;
     establishment: string;
     password?: string;
+}
+
+export interface AppSettings {
+    id: string;
+    settingKey: string;
+    settingValue: string;
+    updatedAt: Date;
+    updatedBy?: string;
 }
 
 export type ViewType = 'dashboard' | 'patients' | 'doctors' | 'schedule' | 'users' | 'appointments_list';

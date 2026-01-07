@@ -9,7 +9,9 @@ const Calendar: React.FC = () => {
         addSchedulingList,
         deleteSchedulingList,
         addPatientToList,
-        removePatientFromList
+        removePatientFromList,
+        updatePatientStatusInList,
+        currentUser
     } = useApp();
     const [showNewListForm, setShowNewListForm] = useState(false);
     const [newListData, setNewListData] = useState({
@@ -41,7 +43,8 @@ const Calendar: React.FC = () => {
             date: newListData.date,
             doctorId: newListData.doctorId,
             doctorType: newListData.doctorType,
-            patientIds: []
+            patientIds: [],
+            patientStatuses: {}
         });
         setNewListData({ name: '', date: '', doctorId: '', doctorType: '' });
         setShowNewListForm(false);
@@ -187,17 +190,57 @@ const Calendar: React.FC = () => {
                                             <tbody>
                                                 {list.patientIds.map(pid => {
                                                     const patient = getPatientById(pid);
+                                                    const status = list.patientStatuses?.[pid];
+                                                    const isPostponed = status === 'postponed';
+                                                    const isDesisted = status === 'desisted';
+
+                                                    // Alert visible to everyone now
+                                                    const showAlert = (isPostponed || isDesisted);
+
                                                     return (
-                                                        <tr key={pid} className="border-b border-gray-50 last:border-0">
-                                                            <td className="py-2">{patient?.name}</td>
+                                                        <tr key={pid} className={`border-b border-gray-50 last:border-0 ${showAlert ? 'bg-red-50' : ''}`}>
+                                                            <td className="py-2">
+                                                                <div className="flex flex-col">
+                                                                    <span>{patient?.name}</span>
+                                                                    {showAlert && (
+                                                                        <span className="text-xs font-bold text-red-600 uppercase">
+                                                                            {isPostponed ? '⚠️ ADIADO' : '🚫 DESISTÊNCIA'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             <td className="py-2 text-gray-600">{patient?.cpf}</td>
                                                             <td className="py-2 text-right">
-                                                                <button
-                                                                    onClick={() => removePatientFromList(list.id, pid)}
-                                                                    className="text-red-500 hover:text-red-700"
-                                                                >
-                                                                    Remover
-                                                                </button>
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    {/* Status Actions */}
+                                                                    <div className="flex bg-gray-100 rounded-lg p-1 gap-1 mr-2">
+                                                                        <button
+                                                                            onClick={() => updatePatientStatusInList(list.id, pid, isPostponed ? null : 'postponed')}
+                                                                            className={`p-1.5 rounded-md transition-colors ${isPostponed ? 'bg-yellow-100 text-yellow-600' : 'hover:bg-gray-200 text-gray-400'}`}
+                                                                            title={isPostponed ? "Cancelar Adiar" : "Adiar"}
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                            </svg>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => updatePatientStatusInList(list.id, pid, isDesisted ? null : 'desisted')}
+                                                                            className={`p-1.5 rounded-md transition-colors ${isDesisted ? 'bg-red-100 text-red-600' : 'hover:bg-gray-200 text-gray-400'}`}
+                                                                            title={isDesisted ? "Cancelar Desistência" : "Desistência"}
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+
+                                                                    <button
+                                                                        onClick={() => removePatientFromList(list.id, pid)}
+                                                                        className="text-red-500 hover:text-red-700 text-xs uppercase font-semibold"
+                                                                    >
+                                                                        Remover
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     );

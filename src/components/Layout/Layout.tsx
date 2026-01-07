@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ImageHeader from '../Header/Header';
@@ -9,18 +9,17 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-    const { currentUser } = useApp();
-    const [headerImageUrl, setHeaderImageUrl] = useState<string>('');
+    const { currentUser, bannerImageUrl, updateBannerImage } = useApp();
 
     return (
         <div className="min-h-screen bg-white">
             <Sidebar />
             <div className="ml-64">
                 <ImageHeader
-                    imageUrl={headerImageUrl}
+                    imageUrl={bannerImageUrl}
                     height="150px"
                     showUploadOption={currentUser?.role === 'administrator'}
-                    onImageChange={setHeaderImageUrl}
+                    onImageChange={updateBannerImage}
                 />
                 <Header />
                 <main className="p-8 animate-fade-in">

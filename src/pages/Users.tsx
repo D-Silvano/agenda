@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { UserRole } from '../types';
+import { UserRole, User } from '../types';
 
 interface UserFormData {
     name: string;
@@ -13,9 +13,11 @@ interface UserFormData {
 }
 
 const Users: React.FC = () => {
-    const { addUser, users, isUsersLoading } = useApp();
+    const { addUser, updateUser, deleteUser, users, isUsersLoading, currentUser } = useApp();
     const [isSaving, setIsSaving] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const [formData, setFormData] = useState<UserFormData>({
         name: '',
@@ -63,6 +65,73 @@ const Users: React.FC = () => {
             }
         } catch (error: any) {
             alert('Erro ao cadastrar usuário: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleEditClick = (user: User) => {
+        setEditingUser(user);
+        setFormData({
+            name: user.name,
+            role: user.role,
+            cpf: user.cpf,
+            email: '', // Email não é editável
+            confirmEmail: '',
+            establishment: user.establishment,
+            password: '', // Senha não é editável
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleDeleteClick = async (user: User) => {
+        if (user.id === currentUser?.id) {
+            alert('Você não pode excluir seu próprio usuário.');
+            return;
+        }
+
+        if (window.confirm(`Tem certeza que deseja excluir o usuário "${user.name}"?\n\nEsta ação não pode ser desfeita.`)) {
+            const result = await deleteUser(user.id);
+            if (result.error) {
+                alert('Erro ao excluir usuário: ' + result.error);
+            } else {
+                alert('Usuário excluído com sucesso!');
+            }
+        }
+    };
+
+    const handleUpdateSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        setIsSaving(true);
+        try {
+            const result = await updateUser(editingUser.id, {
+                name: formData.name,
+                role: formData.role,
+                cpf: formData.cpf,
+                establishment: formData.establishment,
+            });
+
+            if (result.error) {
+                alert('Erro ao atualizar usuário: ' + result.error);
+            } else {
+                alert('Usuário atualizado com sucesso!');
+                setIsEditModalOpen(false);
+                setEditingUser(null);
+                // Resetar formulário
+                setFormData({
+                    name: '',
+                    role: 'health_professional',
+                    cpf: '',
+                    email: '',
+                    confirmEmail: '',
+                    establishment: '',
+                    password: '',
+                });
+            }
+        } catch (error: any) {
+            alert('Erro ao atualizar usuário: ' + error.message);
         } finally {
             setIsSaving(false);
         }
@@ -232,12 +301,13 @@ const Users: React.FC = () => {
                                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Função</th>
                                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">CPF</th>
                                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Estabelecimento</th>
+                                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {users.length === 0 && !isUsersLoading ? (
                                 <tr>
-                                    <td colSpan={4} className="py-8 text-center text-brown-900/40 italic">
+                                    <td colSpan={5} className="py-8 text-center text-brown-900/40 italic">
                                         Nenhum usuário encontrado.
                                     </td>
                                 </tr>
@@ -252,6 +322,32 @@ const Users: React.FC = () => {
                                         </td>
                                         <td className="py-3 px-4 text-sm text-gray-600">{user.cpf}</td>
                                         <td className="py-3 px-4 text-sm text-gray-600">{user.establishment}</td>
+                                        <td className="py-3 px-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEditClick(user)}
+                                                    className="btn btn-sm btn-secondary"
+                                                    title="Editar usuário"
+                                                    disabled={isSaving}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                    <span className="sr-only">Editar</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteClick(user)}
+                                                    className="btn btn-sm bg-red-500 hover:bg-red-600 text-white"
+                                                    title="Excluir usuário"
+                                                    disabled={isSaving}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                    <span className="sr-only">Excluir</span>
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -259,6 +355,137 @@ const Users: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Modal de Edição */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto animate-slide-up">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800">Editar Usuário</h2>
+                            <button
+                                onClick={() => {
+                                    setIsEditModalOpen(false);
+                                    setEditingUser(null);
+                                    setFormData({
+                                        name: '',
+                                        role: 'health_professional',
+                                        cpf: '',
+                                        email: '',
+                                        confirmEmail: '',
+                                        establishment: '',
+                                        password: '',
+                                    });
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdateSubmit} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="md:col-span-2">
+                                    <label className="input-label">Nome Completo</label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        className="input"
+                                        placeholder="Nome do usuário"
+                                        required
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="input-label">Função / Cargo</label>
+                                    <select
+                                        name="role"
+                                        value={formData.role}
+                                        onChange={handleChange}
+                                        className="input"
+                                        required
+                                        disabled={isSaving}
+                                    >
+                                        <option value="administrator">Administrador</option>
+                                        <option value="health_professional">Profissional de Saúde</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="input-label">CPF (Login)</label>
+                                    <input
+                                        type="text"
+                                        name="cpf"
+                                        value={formData.cpf}
+                                        onChange={handleChange}
+                                        className="input"
+                                        placeholder="000.000.000-00"
+                                        required
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="input-label">Estabelecimento / Unidade</label>
+                                    <input
+                                        type="text"
+                                        name="establishment"
+                                        value={formData.establishment}
+                                        onChange={handleChange}
+                                        className="input"
+                                        placeholder="Nome da UBS ou Hospital"
+                                        required
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded text-sm text-blue-800">
+                                <p><strong>Nota:</strong> Para alterar email ou senha, é necessário redefinir as credenciais separadamente.</p>
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-gray-100">
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="btn btn-primary flex-1 shadow-lg shadow-gold-500/20"
+                                >
+                                    {isSaving ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Salvando...
+                                        </span>
+                                    ) : 'Salvar Alterações'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditModalOpen(false);
+                                        setEditingUser(null);
+                                        setFormData({
+                                            name: '',
+                                            role: 'health_professional',
+                                            cpf: '',
+                                            email: '',
+                                            confirmEmail: '',
+                                            establishment: '',
+                                            password: '',
+                                        });
+                                    }}
+                                    className="btn btn-outline"
+                                    disabled={isSaving}
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
